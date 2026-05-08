@@ -26,6 +26,8 @@ db = client[os.environ['DB_NAME']]
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 genai.configure(api_key=GEMINI_API_KEY)
 
+model = genai.GenerativeModel('gemini-1.5-flash')
+
 app = FastAPI(title="TaeKwon-Do ITF API")
 api_router = APIRouter(prefix="/api")
 
@@ -191,72 +193,70 @@ Rămâi în caracter ca un Maestru Choi respectuos. Răspunde în limba română
 
 @api_router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatMessage):
-    # 1. Verificăm cheia Gemini (asigură-te că ai GEMINI_API_KEY definit în os.environ)
-    api_key = os.environ.get('GEMINI_API_KEY')
-    if not api_key:
+    if not GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="Gemini API key not configured")
-    
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
 
-    # 2. Salvează mesajul utilizatorului în DB (Păstrăm codul tău)
-    user_msg_doc = {
-        "id": str(uuid.uuid4()),
-        "session_id": payload.session_id,
-        "role": "user",
-        "content": payload.message,
-        "language": payload.language,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.chat_messages.insert_one(user_msg_doc)
-
-    # 3. Pregătim istoricul pentru Gemini (Multi-turn)
-    # Căutăm mesajele anterioare din această sesiune
-    history_cursor = db.chat_messages.find(
-        {"session_id": payload.session_id},
-        {"_id": 0}
-    ).sort("timestamp", 1)
-    
-    db_history = await history_cursor.to_list(length=20)
-    
-    # Transformăm formatul din DB în formatul acceptat de Gemini
-    gemini_history = []
-    for msg in db_history[:-1]: # Luăm tot în afară de ultimul mesaj proaspăt inserat
-        role = "user" if msg["role"] == "user" else "model"
-        gemini_history.append({"role": role, "parts": [msg["content"]]})
-
-    # 4. Trimitem către Gemini
     try:
+        # 1. Salvează mesajul utilizatorului în DB
+        user_msg_doc = {
+            "id": str(uuid.uuid4()),
+            "session_id": payload.session_id,
+            "role": "user",
+            "content": payload.message,
+            "language": payload.language,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.chat_messages.insert_one(user_msg_doc)
+
+        # 2. Reconstruiește istoricul din DB pentru "memoria" AI-ului
+        history_cursor = db.chat_messages.find(
+            {"session_id": payload.session_id},
+            {"_id": 0}
+        ).sort("timestamp", 1)
+        
+        db_history = await history_cursor.to_list(length=15) # Ultimele 15 mesaje
+        
+        gemini_history = []
+        for msg in db_history[:-1]: # Toate în afară de ultimul (care e cel curent)
+            role = "user" if msg["role"] == "user" else "model"
+            gemini_history.append({"role": role, "parts": [msg["content"]]})
+
+        # 3. Trimite către Gemini
         system_instruction = SYSTEM_MESSAGE_RO if payload.language == "ro" else SYSTEM_MESSAGE_EN
         
-        # Inițiem chat-ul cu istoricul din DB
+        # Pornim sesiunea cu istoricul din baza de date
         chat_session = model.start_chat(history=gemini_history)
         
-        # Trimitem noul mesaj (adăugăm instrucțiunea de sistem la început dacă e prima dată sau în prompt)
-        full_prompt = f"{system_instruction}\n\nUser: {payload.message}" if not gemini_history else payload.message
-        response = await chat_session.send_message_async(full_prompt)
+        # Adăugăm instrucțiunea de sistem la prompt dacă e prima interacțiune
+        prompt = f"{system_instruction}\n\nUser: {payload.message}" if not gemini_history else payload.message
+        
+        # Apelul către AI (Folosim varianta async dacă librăria permite, altfel varianta normală)
+        response = chat_session.send_message(prompt)
         reply_text = response.text
 
+        # 4. Salvează răspunsul AI în DB
+        assistant_msg_doc = {
+            "id": str(uuid.uuid4()),
+            "session_id": payload.session_id,
+            "role": "assistant",
+            "content": reply_text,
+            "language": payload.language,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.chat_messages.insert_one(assistant_msg_doc)
+
+        return ChatResponse(
+            session_id=payload.session_id,
+            reply=reply_text,
+            timestamp=assistant_msg_doc["timestamp"],
+        )
+
     except Exception as e:
-        logging.exception("Gemini call failed")
-        raise HTTPException(status_code=500, detail=f"AI error: {str(e)}")
+        logging.error(f"Gemini Error: {str(e)}")
+        # Dacă eroarea e 404, înseamnă că modelul s-a schimbat din nou
+        raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
 
-    # 5. Salvează răspunsul asistentului în DB (Păstrăm codul tău)
-    assistant_msg_doc = {
-        "id": str(uuid.uuid4()),
-        "session_id": payload.session_id,
-        "role": "assistant",
-        "content": reply_text,
-        "language": payload.language,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.chat_messages.insert_one(assistant_msg_doc)
 
-    return ChatResponse(
-        session_id=payload.session_id,
-        reply=reply_text,
-        timestamp=assistant_msg_doc["timestamp"],
-    )
 
 @api_router.get("/chat/{session_id}/history")
 async def chat_history(session_id: str):
