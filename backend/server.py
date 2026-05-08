@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+import google.generativeai as genai
+import os
+
 
 from itf_data import TULS, ENCYCLOPEDIA, TERMINOLOGY, TECHNIQUES, GRADING_SYSTEM, QUIZ_QUESTIONS
 
@@ -20,7 +23,8 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+genai.configure(api_key=GEMINI_API_KEY)
 
 app = FastAPI(title="TaeKwon-Do ITF API")
 api_router = APIRouter(prefix="/api")
@@ -187,22 +191,15 @@ Rămâi în caracter ca un Maestru Choi respectuos. Răspunde în limba română
 
 @api_router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatMessage):
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-    except ImportError:
-        raise HTTPException(status_code=500, detail="LLM library not installed")
+    # 1. Verificăm cheia Gemini (asigură-te că ai GEMINI_API_KEY definit în os.environ)
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Gemini API key not configured")
+    
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
-    system_message = SYSTEM_MESSAGE_RO if payload.language == "ro" else SYSTEM_MESSAGE_EN
-
-    chat_instance = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=payload.session_id,
-        system_message=system_message,
-    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
-
-    # Save user message
+    # 2. Salvează mesajul utilizatorului în DB (Păstrăm codul tău)
     user_msg_doc = {
         "id": str(uuid.uuid4()),
         "session_id": payload.session_id,
@@ -213,20 +210,38 @@ async def chat(payload: ChatMessage):
     }
     await db.chat_messages.insert_one(user_msg_doc)
 
-    # Reload conversation history into chat instance from DB (multi-turn persistence)
+    # 3. Pregătim istoricul pentru Gemini (Multi-turn)
+    # Căutăm mesajele anterioare din această sesiune
     history_cursor = db.chat_messages.find(
-        {"session_id": payload.session_id, "id": {"$ne": user_msg_doc["id"]}},
-        {"_id": 0},
+        {"session_id": payload.session_id},
+        {"_id": 0}
     ).sort("timestamp", 1)
-    # The library maintains its own session memory by session_id internally,
-    # so we just send the latest user message.
-    user_message = UserMessage(text=payload.message)
+    
+    db_history = await history_cursor.to_list(length=20)
+    
+    # Transformăm formatul din DB în formatul acceptat de Gemini
+    gemini_history = []
+    for msg in db_history[:-1]: # Luăm tot în afară de ultimul mesaj proaspăt inserat
+        role = "user" if msg["role"] == "user" else "model"
+        gemini_history.append({"role": role, "parts": [msg["content"]]})
+
+    # 4. Trimitem către Gemini
     try:
-        reply_text = await chat_instance.send_message(user_message)
+        system_instruction = SYSTEM_MESSAGE_RO if payload.language == "ro" else SYSTEM_MESSAGE_EN
+        
+        # Inițiem chat-ul cu istoricul din DB
+        chat_session = model.start_chat(history=gemini_history)
+        
+        # Trimitem noul mesaj (adăugăm instrucțiunea de sistem la început dacă e prima dată sau în prompt)
+        full_prompt = f"{system_instruction}\n\nUser: {payload.message}" if not gemini_history else payload.message
+        response = await chat_session.send_message_async(full_prompt)
+        reply_text = response.text
+
     except Exception as e:
-        logging.exception("LLM call failed")
+        logging.exception("Gemini call failed")
         raise HTTPException(status_code=500, detail=f"AI error: {str(e)}")
 
+    # 5. Salvează răspunsul asistentului în DB (Păstrăm codul tău)
     assistant_msg_doc = {
         "id": str(uuid.uuid4()),
         "session_id": payload.session_id,
