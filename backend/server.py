@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
-import google.generativeai as genai
 import os
 import httpx  # <--- Librăria nouă
 
@@ -26,9 +25,6 @@ db = client[os.environ['DB_NAME']]
 
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
-genai.configure(api_key=GEMINI_API_KEY)
-
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 app = FastAPI(title="TaeKwon-Do ITF API")
 api_router = APIRouter(prefix="/api")
@@ -274,6 +270,7 @@ async def chat(payload: ChatMessage):
     except Exception as e:
         logging.error(f"Eroare chat: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Eroare AI: {str(e)}")
+
 
 
 @api_router.get("/chat/{session_id}/history")
