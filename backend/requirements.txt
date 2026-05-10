@@ -29,3 +29,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 pydantic[email]
 aiosmtplib
+random
