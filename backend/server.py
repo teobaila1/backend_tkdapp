@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,9 +8,14 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os
 import httpx  # <--- Librăria nouă
+
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import EmailStr
 
 
 from itf_data import TULS, ENCYCLOPEDIA, TERMINOLOGY, TECHNIQUES, GRADING_SYSTEM, QUIZ_QUESTIONS
@@ -23,6 +28,51 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+
+
+# ============= Security & Auth Config =============
+# ÎN PRODUCȚIE, pune SECRET_KEY în .env! Pentru acum, punem unul fix aici.
+SECRET_KEY = os.environ.get('SECRET_KEY', "o_cheie_foarte_secreta_si_lunga_pentru_itf_app_2026")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # Token valabil 7 zile
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Nu s-au putut valida datele de autentificare",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+        
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
 
@@ -31,6 +81,22 @@ api_router = APIRouter(prefix="/api")
 
 
 # ============= Models =============
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    belt_rank: str = "10 Kup (White Belt)" # Pentru progresul de care ziceai
+    created_at: str
+
 class VideoUpload(BaseModel):
     title: str
     description: Optional[str] = ""
@@ -64,6 +130,63 @@ class QuizSubmission(BaseModel):
 
 
 # ============= Static knowledge endpoints =============
+# ============= Authentication Endpoints =============
+@api_router.post("/auth/register", response_model=UserResponse)
+async def register_user(user: UserCreate):
+    # Verificăm dacă email-ul există deja
+    existing_user = await db.users.find_one({"email": user.email.lower()})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email-ul este deja înregistrat.")
+        
+    user_id = str(uuid.uuid4())
+    hashed_pwd = get_password_hash(user.password)
+    
+    new_user = {
+        "id": user_id,
+        "name": user.name,
+        "email": user.email.lower(),
+        "password": hashed_pwd,
+        "belt_rank": "10 Kup (White Belt)", # Centura albă implicit
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(new_user)
+    
+    # Scoatem parola din răspuns
+    del new_user["password"]
+    del new_user["_id"]
+    return new_user
+
+@api_router.post("/auth/login")
+async def login(user: UserLogin):
+    db_user = await db.users.find_one({"email": user.email.lower()})
+    
+    if not db_user or not verify_password(user.password, db_user["password"]):
+        raise HTTPException(status_code=401, detail="Email sau parolă incorectă.")
+        
+    # Generăm token-ul
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": db_user["id"]}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": db_user["id"],
+            "name": db_user["name"],
+            "email": db_user["email"],
+            "belt_rank": db_user.get("belt_rank", "10 Kup (White Belt)")
+        }
+    }
+
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Returnează profilul utilizatorului logat pe baza token-ului."""
+    return current_user
+
+
 @api_router.get("/")
 async def root():
     return {"message": "TaeKwon-Do ITF API", "version": "1.0"}
