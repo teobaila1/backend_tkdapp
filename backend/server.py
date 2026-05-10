@@ -17,6 +17,10 @@ from jose import JWTError, jwt
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import EmailStr
 
+import aiosmtplib
+from email.message import EmailMessage
+import random
+
 
 from itf_data import TULS, ENCYCLOPEDIA, TERMINOLOGY, TECHNIQUES, GRADING_SYSTEM, QUIZ_QUESTIONS
 
