@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 import google.generativeai as genai
 import os
+import httpx  # <--- Librăria nouă
 
 
 from itf_data import TULS, ENCYCLOPEDIA, TERMINOLOGY, TECHNIQUES, GRADING_SYSTEM, QUIZ_QUESTIONS
@@ -192,13 +193,16 @@ Rolul tău:
 
 Rămâi în caracter ca un Maestru Choi respectuos. Răspunde în limba română. Nu inventa fapte ce nu se află în enciclopedie."""
 
+# Citim cheia direct
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
 @api_router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatMessage):
     if not GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="Gemini API key not configured")
 
     try:
-        # 1. Salvează mesajul utilizatorului în DB
+        # 1. Salvează mesajul utilizatorului în baza de date
         user_msg_doc = {
             "id": str(uuid.uuid4()),
             "session_id": payload.session_id,
@@ -209,33 +213,48 @@ async def chat(payload: ChatMessage):
         }
         await db.chat_messages.insert_one(user_msg_doc)
 
-        # 2. Reconstruiește istoricul din DB pentru "memoria" AI-ului
+        # 2. Reconstruiește istoricul (luăm direct tot ce s-a discutat, inclusiv mesajul de acum)
         history_cursor = db.chat_messages.find(
             {"session_id": payload.session_id},
             {"_id": 0}
         ).sort("timestamp", 1)
         
-        db_history = await history_cursor.to_list(length=15) # Ultimele 15 mesaje
+        db_history = await history_cursor.to_list(length=15)
         
-        gemini_history = []
-        for msg in db_history[:-1]: # Toate în afară de ultimul (care e cel curent)
+        # 3. Formatăm istoricul exact cum vrea Google API
+        contents = []
+        for msg in db_history:
             role = "user" if msg["role"] == "user" else "model"
-            gemini_history.append({"role": role, "parts": [msg["content"]]})
+            contents.append({
+                "role": role,
+                "parts": [{"text": msg["content"]}]
+            })
 
-        # 3. Trimite către Gemini
         system_instruction = SYSTEM_MESSAGE_RO if payload.language == "ro" else SYSTEM_MESSAGE_EN
         
-        # Pornim sesiunea cu istoricul din baza de date
-        chat_session = model.start_chat(history=gemini_history)
-        
-        # Adăugăm instrucțiunea de sistem la prompt dacă e prima interacțiune
-        prompt = f"{system_instruction}\n\nUser: {payload.message}" if not gemini_history else payload.message
-        
-        # Apelul către AI (Folosim varianta async dacă librăria permite, altfel varianta normală)
-        response = chat_session.send_message(prompt)
-        reply_text = response.text
+        # 4. Construim cererea directă (fără intermediari SDK)
+        rest_payload = {
+            "systemInstruction": {
+                "role": "system",
+                "parts": [{"text": system_instruction}]
+            },
+            "contents": contents
+        }
 
-        # 4. Salvează răspunsul AI în DB
+        # AICI SPARGEM PERETELE: Lovim direct API-ul v1 (stabil) al celor de la Google
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=rest_payload, timeout=30.0)
+            resp_data = resp.json()
+            
+            if resp.status_code != 200:
+                logging.error(f"Google API Error: {resp_data}")
+                raise HTTPException(status_code=500, detail=f"Eroare directă API: {resp_data}")
+                
+            reply_text = resp_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # 5. Salvează răspunsul AI în baza de date
         assistant_msg_doc = {
             "id": str(uuid.uuid4()),
             "session_id": payload.session_id,
@@ -253,10 +272,8 @@ async def chat(payload: ChatMessage):
         )
 
     except Exception as e:
-        logging.error(f"Gemini Error: {str(e)}")
-        # Dacă eroarea e 404, înseamnă că modelul s-a schimbat din nou
-        raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
-
+        logging.error(f"Eroare chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Eroare AI: {str(e)}")
 
 
 @api_router.get("/chat/{session_id}/history")
