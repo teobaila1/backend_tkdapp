@@ -240,7 +240,7 @@ async def chat(payload: ChatMessage):
         }
 
         # NE ÎNTOARCEM la ușa v1 (aici a funcționat perfect prima dată găsirea modelului)
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
         
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=rest_payload, timeout=30.0)
