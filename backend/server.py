@@ -34,6 +34,13 @@ db = client[os.environ['DB_NAME']]
 
 
 
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USER = os.environ.get("baila.teodor@gmail.com") # Adresa ta de Gmail
+EMAIL_PASS = os.environ.get("chmqhhomwamsmddw") # Parola de aplicație (App Password) de la Google
+
+
+
 # ============= Security & Auth Config =============
 # ÎN PRODUCȚIE, pune SECRET_KEY în .env! Pentru acum, punem unul fix aici.
 SECRET_KEY = os.environ.get('SECRET_KEY', "o_cheie_foarte_secreta_si_lunga_pentru_itf_app_2026")
