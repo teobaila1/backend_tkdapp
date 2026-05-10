@@ -228,17 +228,16 @@ async def chat(payload: ChatMessage):
 
         system_instruction = SYSTEM_MESSAGE_RO if payload.language == "ro" else SYSTEM_MESSAGE_EN
         
-        # 4. Construim cererea directă (fără intermediari SDK)
+       # 4. Construim cererea directă
         rest_payload = {
             "systemInstruction": {
-                "role": "system",
                 "parts": [{"text": system_instruction}]
             },
             "contents": contents
         }
 
-        # AICI SPARGEM PERETELE: Lovim direct API-ul v1 (stabil) al celor de la Google
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        # Folosim ușa 'v1beta' care suportă nativ instrucțiunile de sistem
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=rest_payload, timeout=30.0)
