@@ -217,27 +217,30 @@ async def chat(payload: ChatMessage):
         
         db_history = await history_cursor.to_list(length=15)
         
-        # 3. Formatăm istoricul exact cum vrea Google API
-        contents = []
-        for msg in db_history:
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append({
-                "role": role,
-                "parts": [{"text": msg["content"]}]
-            })
-
         system_instruction = SYSTEM_MESSAGE_RO if payload.language == "ro" else SYSTEM_MESSAGE_EN
         
-       # 4. Construim cererea directă
+        # 3. Formatăm istoricul și "ascundem" personalitatea în primul mesaj!
+        contents = []
+        for i, msg in enumerate(db_history):
+            role = "user" if msg["role"] == "user" else "model"
+            text = msg["content"]
+            
+            # Dacă este absolut primul mesaj din istoric, lipim instrucțiunile secrete la el
+            if i == 0 and role == "user":
+                text = f"INSTRUCȚIUNI STRICTE PENTRU TINE: {system_instruction}\n\nAcum răspunde la acest mesaj al utilizatorului: {text}"
+                
+            contents.append({
+                "role": role,
+                "parts": [{"text": text}]
+            })
+
+        # 4. Construim cererea directă (SUPER SIMPLĂ, fără câmpuri speciale care dau eroare)
         rest_payload = {
-            "systemInstruction": {
-                "parts": [{"text": system_instruction}]
-            },
             "contents": contents
         }
 
-        # Folosim ușa 'v1beta' care suportă nativ instrucțiunile de sistem
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        # NE ÎNTOARCEM la ușa v1 (aici a funcționat perfect prima dată găsirea modelului)
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=rest_payload, timeout=30.0)
