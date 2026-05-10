@@ -17,10 +17,6 @@ from jose import JWTError, jwt
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import EmailStr
 
-import aiosmtplib
-from email.message import EmailMessage
-import random
-
 
 from itf_data import TULS, ENCYCLOPEDIA, TERMINOLOGY, TECHNIQUES, GRADING_SYSTEM, QUIZ_QUESTIONS
 
@@ -85,6 +81,14 @@ api_router = APIRouter(prefix="/api")
 
 
 # ============= Models =============
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
@@ -135,6 +139,59 @@ class QuizSubmission(BaseModel):
 
 # ============= Static knowledge endpoints =============
 # ============= Authentication Endpoints =============
+@api_router.post("/auth/forgot_password")
+async def forgot_password(req: ForgotPasswordRequest):
+    user = await db.users.find_one({"email": req.email.lower()})
+    if not user:
+        # Din motive de securitate, nu spunem dacă email-ul există sau nu
+        return {"message": "Dacă adresa există, un cod a fost trimis."}
+    
+    # Generăm un cod de 6 cifre
+    reset_code = f"{random.randint(100000, 999999)}"
+    # Salvăm codul în DB cu o expirare (ex: 15 min)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    
+    await db.users.update_one(
+        {"email": req.email.lower()},
+        {"$set": {"reset_code": reset_code, "reset_expire": expire.isoformat()}}
+    )
+    
+    # Trimitem Email-ul
+    message = EmailMessage()
+    message["From"] = EMAIL_USER
+    message["To"] = req.email
+    message["Subject"] = "Cod Resetare Parolă - ITF Taekwon-Do"
+    message.set_content(f"Salutare, Sabum!\n\nCodul tău pentru resetarea parolei este: {reset_code}\n\nAcesta expiră în 15 minute.\nTaekwon!")
+    
+    try:
+        await aiosmtplib.send(message, hostname=EMAIL_HOST, port=EMAIL_PORT, start_tls=True, username=EMAIL_USER, password=EMAIL_PASS)
+    except Exception as e:
+        logging.error(f"Eroare trimitere email: {e}")
+        raise HTTPException(status_code=500, detail="Eroare la trimiterea email-ului.")
+
+    return {"message": "Codul a fost trimis pe email."}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    user = await db.users.find_one({"email": req.email.lower()})
+    
+    if not user or user.get("reset_code") != req.code:
+        raise HTTPException(status_code=400, detail="Cod invalid sau email incorect.")
+    
+    expire_str = user.get("reset_expire")
+    if expire_str and datetime.fromisoformat(expire_str) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Codul a expirat.")
+    
+    # Update parolă
+    hashed_pwd = get_password_hash(req.new_password)
+    await db.users.update_one(
+        {"email": req.email.lower()},
+        {"$set": {"password": hashed_pwd}, "$unset": {"reset_code": "", "reset_expire": ""}}
+    )
+    
+    return {"message": "Parola a fost actualizată cu succes!"}
+
+
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register_user(user: UserCreate):
     # Verificăm dacă email-ul există deja
