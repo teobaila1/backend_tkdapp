@@ -146,6 +146,7 @@ class ChatResponse(BaseModel):
 
 class QuizSubmission(BaseModel):
     answers: dict  # {question_id: selected_index}
+    questions: list # ADAUGĂM ASTA: Lista de întrebări pe care le-a primit studentul
 
 
 # ============= Static knowledge endpoints =============
@@ -298,25 +299,37 @@ async def get_grading():
     return {"grades": GRADING_SYSTEM}
 
 @api_router.get("/quiz")
-async def get_quiz():
-    return {"questions": QUIZ_QUESTIONS}
+async def get_quiz(limit: int = 10):
+    # Asigură-te că nu cerem mai multe întrebări decât avem în baza de date
+    num_questions = min(limit, len(QUIZ_QUESTIONS))
+    
+    # Extragem la întâmplare 'num_questions' (ex: 10) întrebări unice
+    random_questions = random.sample(QUIZ_QUESTIONS, num_questions)
+    
+    return {"questions": random_questions}
 
 @api_router.post("/quiz/submit")
 async def submit_quiz(submission: QuizSubmission):
     correct = 0
-    total = len(QUIZ_QUESTIONS)
     results = []
-    for q in QUIZ_QUESTIONS:
+    
+    # Acum luăm totalul din întrebările primite de la telefon (trimise de AI inițial)
+    total = len(submission.questions)
+    
+    for q in submission.questions:
         user_answer = submission.answers.get(q["id"])
-        is_correct = user_answer == q["correct"]
+        is_correct = user_answer == q.get("correct")
+        
         if is_correct:
             correct += 1
+            
         results.append({
             "id": q["id"],
-            "correct_answer": q["correct"],
+            "correct_answer": q.get("correct"),
             "user_answer": user_answer,
             "is_correct": is_correct,
         })
+        
     score = round((correct / total) * 100) if total > 0 else 0
     return {
         "score": score,
@@ -324,6 +337,79 @@ async def submit_quiz(submission: QuizSubmission):
         "total": total,
         "results": results,
     }
+
+
+
+@api_router.get("/quiz/generate")
+async def generate_ai_quiz(limit: int = 5):
+    """Generează un quiz dinamic folosind Gemini AI."""
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="Gemini API key not configured")
+
+    # Îi spunem AI-ului exact ce vrem și în ce format (JSON strict)
+    prompt = f"""
+    Ești Maestrul Choi. Generează un test grilă cu {limit} întrebări unice despre ITF Taekwon-Do.
+    Subiectele pot include: istorie, teorie, tuls, puncte vitale, terminologie coreeană și semnificația centurilor.
+    Informațiile trebuie să fie strict din Enciclopedia Taekwon-Do a Generalului Choi.
+    
+    TREBUIE SĂ RETURNEZI EXCLUSIV UN ARRAY JSON VALID. Fără alt text înainte sau după. 
+    Formatul exact pentru fiecare obiect din array trebuie să fie:
+    {{
+        "id": "gen_randomID",
+        "question_en": "Question in English",
+        "question_ro": "Întrebarea în limba română",
+        "options_en": ["Option A", "Option B", "Option C", "Option D"],
+        "options_ro": ["Varianta A", "Varianta B", "Varianta C", "Varianta D"],
+        "correct": 2,  // indexul variantei corecte (0, 1, 2 sau 3)
+        "category": "Theory"
+    }}
+    """
+
+    rest_payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}]
+    }
+    
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=rest_payload, timeout=40.0) # Timeout mai mare pentru că gândește
+            resp_data = resp.json()
+            
+            if resp.status_code != 200:
+                raise HTTPException(status_code=500, detail=f"Eroare API: {resp_data}")
+                
+            # Extragem textul brut de la AI
+            ai_text = resp_data["candidates"][0]["content"]["parts"][0]["text"]
+            
+            # Curățăm textul (uneori AI-ul pune ```json ... ``` în jur)
+            ai_text = ai_text.strip()
+            if ai_text.startswith("```json"):
+                ai_text = ai_text[7:]
+            if ai_text.startswith("```"):
+                ai_text = ai_text[3:]
+            if ai_text.endswith("```"):
+                ai_text = ai_text[:-3]
+                
+            # Transformăm textul în obiecte Python
+            generated_questions = json.loads(ai_text.strip())
+            
+            # Ne asigurăm că ID-urile sunt unice pentru React
+            for i, q in enumerate(generated_questions):
+                q["id"] = f"ai_gen_{uuid.uuid4().hex[:6]}"
+                
+            return {"questions": generated_questions}
+
+    except json.JSONDecodeError as e:
+        logging.error(f"Eroare la parsarea JSON-ului de la AI: {ai_text}")
+        # Dacă AI-ul greșește formatul, dăm un fallback (luăm 5 din baza de date)
+        random_fallback = random.sample(QUIZ_QUESTIONS, min(limit, len(QUIZ_QUESTIONS)))
+        return {"questions": random_fallback}
+    except Exception as e:
+        logging.error(f"Eroare generare quiz AI: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Eroare AI: {str(e)}")
+
+
 
 
 # ============= Videos =============
