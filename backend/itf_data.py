@@ -322,6 +322,30 @@ ENCYCLOPEDIA = [
         "content_en": "The Sine Wave is the vertical body movement that distinguishes ITF Taekwon-Do. The body follows three phases:\n\n1. DOWN — slightly lower the hip\n2. UP — rise smoothly while preparing the technique\n3. DOWN — drop the body weight into the technique at the moment of impact\n\nThis vertical motion adds gravitational mass to every technique, increasing power according to F = ma. The hip is raised at the beginning of the motion and lowered at the moment of impact (Mass principle, see Theory of Power). Without the sine wave, the foot moves in a horizontal wave instead — the result is less power. Without proper hip rotation, the foot moves in a saw-tooth wave — again, less power.",
         "content_ro": "Sine Wave este mișcarea verticală a corpului care distinge ITF Taekwon-Do. Corpul urmează trei faze:\n\n1. JOS — coboară ușor șoldul\n2. SUS — ridică-te lin în timp ce pregătești tehnica\n3. JOS — coboară greutatea corporală în tehnică în momentul impactului\n\nAceastă mișcare verticală adaugă masă gravitațională fiecărei tehnici, mărind puterea conform F = ma. Șoldul este ridicat la începutul mișcării și coborât în momentul impactului (principiul Masei). Fără sine wave, piciorul se mișcă într-o undă orizontală — rezultatul este mai puțină putere.",
     },
+    {
+        "id": "training-secrets",
+        "category": "theory",
+        "title_en": "Training Secrets of Taekwon-Do",
+        "title_ro": "Secretele Antrenamentului în Taekwon-Do",
+        "content_en": "General Choi highlighted several secrets to effective training:\n1. To study the theory of power thoroughly.\n2. To understand the purpose and method of each movement clearly.\n3. To bring the movement of eyes, hands, feet and breath into a single coordinated action.\n4. To choose the appropriate attacking tool for each vital spot.\n5. To become familiar with the correct angle and distance for attack and defence.\n6. Keep both the arms and legs bent slightly while the movement is in motion.\n7. All movements must begin with a backward motion with very few exceptions. However, once the movement is in motion it should not be stopped before reaching the target.\n8. To create a sine wave during the movement by utilizing the knee spring properly.",
+        "content_ro": "Generalul Choi a evidențiat 8 secrete pentru un antrenament eficient:\n1. Să studiezi temeinic teoria puterii.\n2. Să înțelegi clar scopul și metoda fiecărei mișcări.\n3. Să aduci mișcarea ochilor, mâinilor, picioarelor și respirația într-o singură acțiune coordonată.\n4. Să alegi arma de atac potrivită pentru fiecare punct vital.\n5. Să te familiarizezi cu unghiul și distanța corectă pentru atac și apărare.\n6. Să ții atât brațele, cât și picioarele ușor îndoite în timpul mișcării.\n7. Toate mișcările trebuie să înceapă cu o mișcare înapoi, cu foarte puține excepții. Odată inițiată, mișcarea nu trebuie oprită înainte de a atinge ținta.\n8. Să creezi un 'sine wave' (undă sinusoidală) în timpul mișcării, utilizând corect flexia genunchilor."
+    },
+    {
+        "id": "vital-spots",
+        "category": "theory",
+        "title_en": "Vital Spots (Kupso)",
+        "title_ro": "Punctele Vitale (Kupso)",
+        "content_en": "A vital spot in Taekwon-Do is defined as any sensitive or vulnerable area on the body that is susceptible to an attack.\nThe body is divided into 3 main sections for targeting:\n1. High Section (Nopunde): Above the neck/shoulders (eyes, temples, philtrum, jaw).\n2. Middle Section (Kaunde): Between the shoulders and the umbilicus (solar plexus, floating ribs, sternum).\n3. Low Section (Najunde): Below the umbilicus (groin, knees, shins, instep).\nStriking the correct vital spot with the appropriate tool is essential for effective self-defence.",
+        "content_ro": "Un punct vital în Taekwon-Do este definit ca orice zonă sensibilă sau vulnerabilă a corpului, susceptibilă la un atac.\nCorpul este împărțit în 3 secțiuni principale pentru țintire:\n1. Secțiunea Înaltă (Nopunde): Deasupra gâtului/umerilor (ochi, tâmple, filtrum, maxilar).\n2. Secțiunea Mijlocie (Kaunde): Între umeri și ombilic (plexul solar, coastele flotante, stern).\n3. Secțiunea Joasă (Najunde): Sub ombilic (vintre, genunchi, tibii, instep).\nLoviturile pe punctul vital corect cu arma adecvată sunt esențiale pentru o autoapărare eficientă."
+    },
+    {
+        "id": "system-of-sparring",
+        "category": "theory",
+        "title_en": "System of Sparring (Matsogi)",
+        "title_ro": "Sistemul de Sparring (Matsogi)",
+        "content_en": "Sparring is the physical application of the Taekwon-Do techniques against an actual moving opponent or opponents.\nIt is divided into:\n1. Pre-arranged Sparring (Yaksok Matsogi): Movements are planned in advance (3-step, 2-step, 1-step).\n2. Free Sparring (Jayu Matsogi): Unscripted combat with controlled attacks.\n3. Model Sparring (Mobum Matsogi): Displaying techniques with a partner for demonstration purposes.\n4. Pre-arranged Free Sparring (Yaksok Jayu Matsogi): A combination of pre-arranged and free sparring.\n5. Foot Technique Sparring (Bal Matsogi): Sparring using only foot techniques.",
+        "content_ro": "Sparring-ul este aplicarea fizică a tehnicilor Taekwon-Do împotriva unui adversar sau a unor adversari în mișcare reală.\nSe împarte în:\n1. Sparring Pre-aranjat (Yaksok Matsogi): Mișcările sunt planificate în avans (cu 3 pași, 2 pași, 1 pas).\n2. Sparring Liber (Jayu Matsogi): Luptă liberă cu atacuri controlate.\n3. Sparring Model (Mobum Matsogi): Afișarea tehnicilor cu un partener în scopuri demonstrative.\n4. Sparring Liber Pre-aranjat (Yaksok Jayu Matsogi): O combinație de sparring pre-aranjat și liber.\n5. Sparring cu Tehnici de Picior (Bal Matsogi): Luptă folosind doar tehnici de picior."
+    }
 ]
 
 
@@ -408,6 +432,15 @@ TERMINOLOGY = [
     {"korean": "In Nae", "hangul": "인내", "en": "Perseverance", "ro": "Perseverență", "category": "Tenets"},
     {"korean": "Guk Gi", "hangul": "극기", "en": "Self-Control", "ro": "Autocontrol", "category": "Tenets"},
     {"korean": "Baekjul Boolgool", "hangul": "백절불굴", "en": "Indomitable Spirit", "ro": "Spirit Indomabil", "category": "Tenets"},
+    # Attack Tools (Weapons of the body)
+    {"korean": "Ap Kumchi", "hangul": "앞꿈치", "en": "Ball of the foot", "ro": "Pernița piciorului", "category": "Body Parts"},
+    {"korean": "Balkal", "hangul": "발칼", "en": "Footsword (outer edge)", "ro": "Sabia piciorului (Cantul exterior)", "category": "Body Parts"},
+    {"korean": "Dwi Kumchi", "hangul": "뒤꿈치", "en": "Heel", "ro": "Călcâi", "category": "Body Parts"},
+    {"korean": "Balkut", "hangul": "발끝", "en": "Toes", "ro": "Vârfurile degetelor de la picioare", "category": "Body Parts"},
+    {"korean": "Sonkal Dung", "hangul": "손칼등", "en": "Reverse knife-hand", "ro": "Muchiul palmei (Cantul interior)", "category": "Body Parts"},
+    {"korean": "Sonkut", "hangul": "손끝", "en": "Fingertips", "ro": "Vârfurile degetelor", "category": "Body Parts"},
+    {"korean": "Dung Joomuk", "hangul": "등주먹", "en": "Back fist", "ro": "Dosul pumnului", "category": "Body Parts"},
+    {"korean": "Ap Joomuk", "hangul": "앞주먹", "en": "Forefist", "ro": "Partea frontală a pumnului", "category": "Body Parts"},
 ]
 
 
@@ -517,4 +550,9 @@ QUIZ_QUESTIONS = [
     {"id": "q33", "question_en": "How many movements in Yul-Gok and why?", "question_ro": "Câte mișcări are Yul-Gok și de ce?", "options_en": ["38 — birthplace at 38° latitude", "29 — division number", "33 — patriots", "24 — letters"], "options_ro": ["38 — locul nașterii la 38° latitudine", "29 — numărul diviziei", "33 — patrioți", "24 — litere"], "correct": 0, "category": "Patterns"},
     {"id": "q34", "question_en": "Hwa-Rang's 29 movements refer to:", "question_ro": "Cele 29 de mișcări din Hwa-Rang se referă la:", "options_en": ["Age of founder", "29th Infantry Division", "Year 1929", "29 warriors"], "options_ro": ["Vârsta fondatorului", "Divizia 29 de Infanterie", "Anul 1929", "29 de războinici"], "correct": 1, "category": "Patterns"},
     {"id": "q35", "question_en": "When does Sam-Il commemorate?", "question_ro": "Ce comemorează Sam-Il?", "options_en": ["Korean War", "March 1, 1919 independence movement", "Founding of ITF", "Korean unification"], "options_ro": ["Războiul Coreean", "Mișcarea de independență din 1 martie 1919", "Fondarea ITF", "Unificarea Coreei"], "correct": 1, "category": "Patterns"},
+    {"id": "q36", "question_en": "What is the Korean term for Free Sparring?", "question_ro": "Care este termenul coreean pentru Sparring Liber?", "options_en": ["Yaksok Matsogi", "Jayu Matsogi", "Mobum Matsogi", "Bal Matsogi"], "options_ro": ["Yaksok Matsogi", "Jayu Matsogi", "Mobum Matsogi", "Bal Matsogi"], "correct": 1, "category": "Terminology"},
+    {"id": "q37", "question_en": "How many training secrets did General Choi highlight?", "question_ro": "Câte secrete de antrenament a evidențiat Generalul Choi?", "options_en": ["5", "6", "8", "10"], "options_ro": ["5", "6", "8", "10"], "correct": 2, "category": "Theory"},
+    {"id": "q38", "question_en": "In the Sine Wave motion, what are the three phases?", "question_ro": "În mișcarea Sine Wave, care sunt cele trei faze?", "options_en": ["Up - Down - Up", "Down - Up - Down", "Left - Right - Forward", "Down - Forward - Down"], "options_ro": ["Sus - Jos - Sus", "Jos - Sus - Jos", "Stânga - Dreapta - Față", "Jos - Față - Jos"], "correct": 1, "category": "Theory"},
+    {"id": "q39", "question_en": "What is the 'Footsword' in Korean?", "question_ro": "Cum se spune 'Sabia piciorului' în coreeană?", "options_en": ["Balkal", "Ap Kumchi", "Dwi Kumchi", "Moorup"], "options_ro": ["Balkal", "Ap Kumchi", "Dwi Kumchi", "Moorup"], "correct": 0, "category": "Terminology"},
+    {"id": "q40", "question_en": "Which section of the body is 'Kaunde'?", "question_ro": "Care secțiune a corpului este 'Kaunde'?", "options_en": ["High", "Middle", "Low", "Back"], "options_ro": ["Înaltă", "Mijlocie", "Joasă", "Spate"], "correct": 1, "category": "Terminology"},
 ]
