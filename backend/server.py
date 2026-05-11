@@ -36,8 +36,8 @@ db = client[os.environ['DB_NAME']]
 
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
-EMAIL_USER = os.environ.get("baila.teodor@gmail.com") # Adresa ta de Gmail
-EMAIL_PASS = os.environ.get("chmqhhomwamsmddw") # Parola de aplicație (App Password) de la Google
+EMAIL_USER = "baila.teodor@gmail.com"
+EMAIL_PASS = "chmqhhomwamsmddw"
 
 
 
